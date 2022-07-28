@@ -8,6 +8,8 @@
 ## Get started 
 How to use  <mark><b>Database Query Builder<b><mark>
 
+It is very important to make the connection to the database that we are going to use.
+
 ````python
 from db_querybuilder import DatabaseQueryBuilder
 
