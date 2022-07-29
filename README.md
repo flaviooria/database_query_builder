@@ -3,7 +3,7 @@
 - A library that serves as a means of connecting to a database and executing sql statements.
 
 ### Installation 😀📚
-> pip install db_querybuilder
+> ````pip install db_querybuilder````
 
 ## Get started 
 How to use  <mark><b>Database Query Builder<b><mark>
