@@ -205,9 +205,6 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# pkgdown site
-docs/
-
 # translation temp files
 po/*~
 
@@ -242,10 +239,5 @@ rsconnect/
 
 # Ignore code-workspaces
 *.code-workspace
-
-# docs
-docs/_build
-docs/_static
-docs/_templates
 
 # End of https://www.toptal.com/developers/gitignore/api/r,visualstudiocode,python
