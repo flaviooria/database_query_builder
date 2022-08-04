@@ -16,7 +16,7 @@ class DatabaseQueryBuilderTestCase(unittest.TestCase):
 
     def test_toJson(self):
         # Query to json
-        query = self.db.setTable('test_data').query().where(clausule='id',parameter=1).toJson()
+        query = self.db.setTable('test_data').query().where(clausule='id',parameter=1,operator='=').toJson()
         self.assertEqual(query,'[{"id": 1, "first_name": "Edouard", "last_name": "Maffini", "email": "emaffini0@mlb.com"}]')
 
     def test_toJson_error(self):
@@ -81,7 +81,7 @@ class DatabaseQueryBuilderTestCase(unittest.TestCase):
         
     def test_delete(self):
         # Delete data
-        query = self.db.delete(table='test_data',clausule='first_name',parameter='Example Update')
+        query = self.db.delete(table='test_data',clausule='first_name',parameter='Jhon')
         value = True if not query == None else False
         self.assertTrue(query,value)
 

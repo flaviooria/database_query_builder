@@ -77,16 +77,23 @@ class DatabaseQueryBuilder():
         self.queryResult += f'{table}'
         return self
 
-    def where(self, clausule: str, parameter: str, parameters_dict: dict = {}):
+    def where(self, clausule: str, parameter: str, parameters_dict: dict = {}, operator : str = '='):
         """
-        It takes a string, a string, and a dictionary as parameters, and returns an object
+        It takes a clausule, a parameter, a parameters_dict and an operator as arguments and returns the
+        queryResult with the where clausule
 
-        :param clausule: the column name
+        Note: In the parameters dictionary it's necessary write the operator in the condition 
+        e.g:
+        parameters_dict: {'id =': 1, 'name =': 'John'}
+
+        :param clausule: The column name
         :type clausule: str
-        :param parameter: str = 'id'
+        :param parameter: str
         :type parameter: str
-        :param parameters_dict: {'condition': 'value'}
+        :param parameters_dict: {'id =': 1, 'name =': 'John'}
         :type parameters_dict: dict
+        :param operator: The operator to be used in the where clause, defaults to =
+        :type operator: str (optional)
         :return: The queryResult string
         """
         try:
@@ -94,11 +101,11 @@ class DatabaseQueryBuilder():
                 if self.queryResult.find('where') == -1:
                     if type(parameter) == str:
                         parameter = f'\'{parameter}\''
-                    self.queryResult += f' where {clausule} = {parameter}'
+                    self.queryResult += f' where {clausule} {operator} {parameter}'
                 else:
                     if type(parameter) == str:
                         parameter = f'\'{parameter}\''
-                    self.queryResult += f' and {clausule} = {parameter}'
+                    self.queryResult += f' and {clausule} {operator} {parameter}'
             else:
                 self.queryResult += ' where '
                 if (len(parameters_dict) == 1):
@@ -109,7 +116,7 @@ class DatabaseQueryBuilder():
                         value = f'\'{value}\''
                     self.queryResult += f' {condition} {value}'
                 else:
-                    for index,(condition, value) in enumerate(parameters_dict.items()):
+                    for index, (condition, value) in enumerate(parameters_dict.items()):
                         if not index == len(parameters_dict) - 1:
                             if type(value) == str:
                                 value = f'\'{value}\''
@@ -151,7 +158,7 @@ class DatabaseQueryBuilder():
             query_fields = f'SELECT COLUMN_NAME \'field\' FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = \'{self.db_database}\' AND TABLE_NAME = \'{self.table}\';'
 
             self.cursor.execute(query_fields)
-            fields : list[tuple] = self.cursor.fetchall() 
+            fields: list[tuple] = self.cursor.fetchall()
             self.db.commit()
             query = self.results()
 
@@ -161,7 +168,7 @@ class DatabaseQueryBuilder():
 
             for field in fields:
                 # Get the first position of tuple => 'id','name',
-                newField : str = field[0]
+                newField: str = field[0]
                 listFields.append(newField)
 
             for index, qResult in enumerate(query):
@@ -183,7 +190,7 @@ class DatabaseQueryBuilder():
         """
         It takes a table name, a list of fields, a list of values, and an object as parameters, and
         inserts the values into the table
-        
+
         :param table: The table name
         :type table: str
         :param fields: list = [], values: list = [], object: object = object
@@ -241,7 +248,7 @@ class DatabaseQueryBuilder():
         except Exception as e:
             self.db.rollback()
             print(e)
-    
+
     def update(self, *, table: str = '', fields: list = [], values: list = [], object: object = object, clausule: str, parameter: str, parameters_dict: dict = {}) -> int:
         """
         It generates an update query based on the parameters passed to it
@@ -274,10 +281,11 @@ class DatabaseQueryBuilder():
                         fields.append(o)
                         values.append(getattr(object, o))
                 query = self.__generateUpdate(table, fields, values)
-            
+
             # Add where for update data in the db.
-            self.reset().setTable(table if table else self.table).where(clausule, parameter, parameters_dict)
-            
+            self.reset().setTable(table if table else self.table).where(
+                clausule, parameter, parameters_dict)
+
             query += self.queryResult
 
             self.cursor.execute(query)
@@ -288,15 +296,15 @@ class DatabaseQueryBuilder():
             self.db.rollback()
             print(e)
 
-    def delete(self, table : str = '',*,clausule: str = '', parameter: str = ''):
+    def delete(self, table: str = '', *, clausule: str = '', parameter: str = ''):
         try:
             if table:
                 self.queryResult = f'delete from {table}'
             else:
                 self.queryResult = f'delete from {self.table}'
 
-            self.where(clausule,parameter,{})
-            
+            self.where(clausule, parameter, {}) 
+
             self.cursor.execute(self.queryResult)
             self.db.commit()
 
@@ -304,9 +312,8 @@ class DatabaseQueryBuilder():
         except Error as e:
             self.db.rollback()
             print(e)
-        
-    
-    def __generateInsert(self, table : str, fields: list, values: list) -> str:
+
+    def __generateInsert(self, table: str, fields: list, values: list) -> str:
         """
         It takes a table name, a list of fields, and a list of values and returns a string that is a
         valid SQL insert statement
@@ -349,7 +356,7 @@ class DatabaseQueryBuilder():
         except Exception as e:
             print(e)
 
-    def __generateInsertMany(self, table : str, fields: list, values: list) -> str:
+    def __generateInsertMany(self, table: str, fields: list, values: list) -> str:
         """
         It takes a table name, a list of fields, and a list of values and returns a string that is a
         valid SQL insert statement
@@ -390,7 +397,7 @@ class DatabaseQueryBuilder():
         except Exception as e:
             print(e)
 
-    def __generateUpdate(self, table : str, fields: list, values: list) -> str:
+    def __generateUpdate(self, table: str, fields: list, values: list) -> str:
         """
         It takes a table name, a list of fields, and a list of values, and returns an update statement
 
@@ -405,24 +412,28 @@ class DatabaseQueryBuilder():
             if len(fields) == 1 and len(values) == 1:
                 if type(values[0]) == str:
                     values[0] = f'\'{values[0]}\''
-                    update += '{} = {}'.format(fields[0],values[0])
+                    update += '{} = {}'.format(fields[0], values[0])
                 else:
-                    update += '{} = {}'.format(fields[0],values[0])
+                    update += '{} = {}'.format(fields[0], values[0])
             else:
                 for value in values:
-                    for index,valueData in enumerate(value):
+                    for index, valueData in enumerate(value):
                         if not index == len(fields) - 1:
                             if type(valueData) == str:
                                 valueData = f'\'{valueData}\''
-                                update += '{} = {}, '.format(fields[index],valueData)
+                                update += '{} = {}, '.format(
+                                    fields[index], valueData)
                             else:
-                                update += '{} = {}, '.format(fields[index],valueData)
+                                update += '{} = {}, '.format(
+                                    fields[index], valueData)
                         else:
                             if type(valueData) == str:
                                 valueData = f'\'{valueData}\''
-                                update += '{} = {}'.format(fields[index],valueData)
+                                update += '{} = {}'.format(
+                                    fields[index], valueData)
                             else:
-                                update += '{} = {}'.format(fields[index],valueData)
+                                update += '{} = {}'.format(
+                                    fields[index], valueData)
             return update
         except Exception as e:
             print(e)
