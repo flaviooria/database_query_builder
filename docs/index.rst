@@ -11,12 +11,3 @@ Welcome to Database Query Builder's documentation!
    :caption: Contents:
 
    source/api/db_querybuilder
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
