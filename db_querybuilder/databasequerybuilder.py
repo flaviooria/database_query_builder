@@ -5,8 +5,7 @@ from mysql.connector import connect, Error
 
 class DatabaseQueryBuilder():
     def __init__(self, *, db_server='localhost', db_user, db_password, db_database, db_port=3306) -> None:
-        """
-        The function connects to a database and returns a cursor object
+        """The function connects to a database and returns a cursor object
 
         :param db_server: 'localhost'
         :param db_user: 'root'
@@ -25,29 +24,37 @@ class DatabaseQueryBuilder():
 
             self.db.autocommit = False
             self.cursor = self.db.cursor()
-        except Error as e:  
+        except Error as e:
             print(e)
 
     def reset(self):
+        """It resets the table and queryResult to empty strings.
+
+        :return: The object itself.
+        """
         self.table = ''
         self.queryResult = ''
         return self
 
     def setTable(self, name: str):
+        """It sets the table name for the query
+        
+        :param name: The name of the table you want to query
+        :type name: str
+        :return: The object itself.
+        """
         self.table = name
         return self
 
     def query(self):
-        """
-        It returns the query result of the table that was passed in
+        """It returns the query result of the table that was passed in
         :return: The queryResult attribute of the class.
         """
         self.queryResult = f'select * from {self.table}'
         return self
 
     def select(self, fields: list = []):
-        """
-        It takes a list of fields and builds a query string
+        """It takes a list of fields and builds a query string
 
         :param fields: list = []
         :type fields: list
@@ -67,8 +74,7 @@ class DatabaseQueryBuilder():
         return self
 
     def from_(self, table: str):
-        """
-        It takes a string as an argument and appends it to the queryResult property of the class
+        """It takes a string as an argument and appends it to the queryResult property of the class
 
         :param table: str
         :type table: str
@@ -77,14 +83,10 @@ class DatabaseQueryBuilder():
         self.queryResult += f'{table}'
         return self
 
-    def where(self, clausule: str, parameter: str, parameters_dict: dict = {}, operator : str = '='):
-        """
-        It takes a clausule, a parameter, a parameters_dict and an operator as arguments and returns the
-        queryResult with the where clausule
+    def where(self, clausule: str, parameter: str, parameters_dict: dict = {}, operator: str = '='):
+        """It takes a clausule, a parameter, a parameters_dict and an operator as arguments and returns the queryResult with the where clausule
 
-        Note: In the parameters dictionary it's necessary write the operator in the condition 
-        e.g:
-        parameters_dict: {'id =': 1, 'name =': 'John'}
+        Note: In the parameters dictionary it's necessary write the operator in the condition e.g: parameters_dict: {'id =': 1, 'name =': 'John'}
 
         :param clausule: The column name
         :type clausule: str
@@ -130,8 +132,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def results(self, query: str = '') -> list[tuple]:
-        """
-        It takes a query as an argument, and if the query is empty, it executes the queryResult
+        """It takes a query as an argument, and if the query is empty, it executes the queryResult
         variable, which is a string, and if the query is not empty, it executes the query
 
         :param query: str = ''
@@ -150,8 +151,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def toJson(self) -> str:
-        """
-        It takes the results of a query and returns a json string
+        """It takes the results of a query and returns a json string
         :return: A list of dictionaries.
         """
         try:
@@ -187,9 +187,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def insert(self, *, table: str = '', fields: list = [], values: list = [], object: object = object):
-        """
-        It takes a table name, a list of fields, a list of values, and an object as parameters, and
-        inserts the values into the table
+        """It takes a table name, a list of fields, a list of values, and an object as parameters,and inserts the values into the table
 
         :param table: The table name
         :type table: str
@@ -223,9 +221,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def insertMany(self, *, table: str = '', fields: list = [], values: list = []):
-        """
-        It takes a table name, a list of fields, and a list of values, and inserts them into the
-        database
+        """It takes a table name, a list of fields, and a list of values, and inserts them into the database
 
         :param table: str = ''
         :type table: str
@@ -250,13 +246,11 @@ class DatabaseQueryBuilder():
             print(e)
 
     def update(self, *, table: str = '', fields: list = [], values: list = [], object: object = object, clausule: str, parameter: str, parameters_dict: dict = {}) -> int:
-        """
-        It generates an update query based on the parameters passed to it
+        """It generates an update query based on the parameters passed to it
 
         :param table: str = ''
         :type table: str
-        :param fields: list = [], values: list = [], object: object = object, clausule: str, parameter:
-        str, parameters_dict: dict = {}
+        :param fields: list = [], values: list = [], object: object = object, clausule: str, parameter: str, parameters_dict: dict = {}
         :type fields: list
         :param values: list = []
         :type values: list
@@ -297,13 +291,23 @@ class DatabaseQueryBuilder():
             print(e)
 
     def delete(self, table: str = '', *, clausule: str = '', parameter: str = ''):
+        """It deletes a row from a table
+        
+        :param table: The table you want to delete from
+        :type table: str
+        :param clausule: The condition for the deletion
+        :type clausule: str
+        :param parameter: str = ''
+        :type parameter: str
+        :return: The number of rows affected by the query.
+        """
         try:
             if table:
                 self.queryResult = f'delete from {table}'
             else:
                 self.queryResult = f'delete from {self.table}'
 
-            self.where(clausule, parameter, {}) 
+            self.where(clausule, parameter, {})
 
             self.cursor.execute(self.queryResult)
             self.db.commit()
@@ -314,9 +318,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def __generateInsert(self, table: str, fields: list, values: list) -> str:
-        """
-        It takes a table name, a list of fields, and a list of values and returns a string that is a
-        valid SQL insert statement
+        """It takes a table name, a list of fields, and a list of values and returns a string that is a valid SQL insert statement
 
         :param table: the table name
         :param fields: list of fields to insert into
@@ -357,9 +359,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def __generateInsertMany(self, table: str, fields: list, values: list) -> str:
-        """
-        It takes a table name, a list of fields, and a list of values and returns a string that is a
-        valid SQL insert statement
+        """It takes a table name, a list of fields, and a list of values and returns a string that is a valid SQL insert statement
 
         :param table: the table name
         :param fields: list of fields to insert into
@@ -398,8 +398,7 @@ class DatabaseQueryBuilder():
             print(e)
 
     def __generateUpdate(self, table: str, fields: list, values: list) -> str:
-        """
-        It takes a table name, a list of fields, and a list of values, and returns an update statement
+        """It takes a table name, a list of fields, and a list of values, and returns an update statement
 
         :param table: The table name
         :param fields: ['id', 'name', 'age']
