@@ -25,7 +25,7 @@ class DatabaseQueryBuilder():
 
             self.db.autocommit = False
             self.cursor = self.db.cursor()
-        except Error as e:
+        except Error as e:  
             print(e)
 
     def reset(self):
