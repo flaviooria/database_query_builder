@@ -6,9 +6,14 @@
 > ````pip install db_querybuilder````
 
 ## Get started 
-How to use  <mark><b>Database Query Builder<b><mark>
+How to use  **Database Query Builder**
 
 It is very important to make the connection to the database that we are going to use.
+
+## New Version updated
+- New updated version ***0.2.0***
+
+- Now with Sqlite integration. If you will use the sqlite integration, I invite you to read the official sqlite documentation, to see the types of data that it allows to use.
 
 ````python
 from db_querybuilder import DatabaseQueryBuilder
@@ -34,6 +39,19 @@ if __name__ == '__main__':
     # Insert data with attributes object
     user = TestUser()
     query = db.insert(table='test_data',object=user)
+    print(query)
+
+    # Intregration with sqlite
+    # New version with sqlite queries
+
+    dbSqlite = DatabaseQueryBuilder(db_database='./db/hmi_creatio', driver= DatabaseDrivers.DRIVER_SQLITE.value)
+    dbSqlite.setTable('test_data')
+
+
+    query = dbSqlite.createTable(columns = ['id integer primary key autoincrement','name varchar(40)']).insert(fields=['id','name'],values=[1,'Jhon Doe'])
+    print(query)
+
+    query = dbSqlite.select(fields=['id','name']).toJson()
     print(query)
 
 ````

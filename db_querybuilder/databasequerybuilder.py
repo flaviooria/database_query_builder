@@ -1,44 +1,113 @@
-import json
 import datetime
-from mysql.connector import connect, Error
+import json
+import sqlite3
+from enum import Enum
+import typing
+
+from mysql.connector import CMySQLConnection, Error, MySQLConnection, connect
 
 
+# The above class is an enumeration of database drivers
+class DatabaseDrivers(Enum):
+    DRIVER_MYSQL = 'MYSQL'
+    DRIVER_SQLITE = 'SQLITE'
+
+
+# It's a class that generates SQL queries for you
 class DatabaseQueryBuilder():
-    def __init__(self, *, db_server='localhost', db_user, db_password, db_database, db_port=3306) -> None:
-        """The function connects to a database and returns a cursor object
-
-        :param db_server: 'localhost'
-        :param db_user: 'root'
-        :param db_password: 'password'
-        :param db_database: 'my_database'
+    def __init__(self,db_database: str, driver: str | DatabaseDrivers = 'MYSQL') -> None:
+        """
+        This function is used to connect to a database
+        
+        :param db_database: str = The name of the database you want to connect to
+        :type db_database: str
+        :param driver: str | DatabaseDrivers = 'MYSQL', defaults to MYSQL
+        :type driver: str | DatabaseDrivers (optional)
         """
         super().__init__()
 
         self.table = ''
-        self.queryResult = ''
+        self._query = ''
         self.db_database = db_database
+        self.host = 'localhost'
+        self.user = None
+        self.password = None
+        self.port = None
+        self.__cursor = None
+        self.db: MySQLConnection | CMySQLConnection | sqlite3.Connection = None
+        self.__driver = driver
 
         try:
-            self.db = connect(host=db_server, user=db_user,
-                              password=db_password, database=db_database, port=db_port)
-
-            self.db.autocommit = False
-            self.cursor = self.db.cursor()
+            if DatabaseDrivers.DRIVER_MYSQL.value == driver:
+                self.db = connect(host=self.host, user=self.user, password=self.password, database=self.db_database, port=self.port)
+                self.db.autocommit = False
+                self.__cursor = self.db.cursor()
+            else:
+                self.db = sqlite3.connect(f'{self.db_database}.sqlite')
+                self.__cursor = self.db.cursor()
         except Error as e:
             print(e)
 
+    
+    def setHost(self, host: str):
+        """
+        This function sets the host of the object to the host passed in as a parameter
+        
+        :param host: The hostname of the server
+        :type host: str
+        """
+        self.host = host
+
+        return self
+
+    
+    def setUserAndPassword(self, user: str, password: str):
+        """
+        This function sets the user and password of the object
+        
+        :param user: The username of the account you want to use to execute database
+        :type user: str
+        :param password: The password for database
+        :type password: str
+        """
+        self.user = user
+        self.password = password
+
+        return self
+
+    
+    def setPort(self, port: int):
+        """
+        This function sets the port number of the server
+        
+        :param port: The port to listen on
+        :type port: int
+        """
+        self.port = port
+
+        return self
+
+    def getLastId(self):
+        return self.__cursor.lastrowid
+
+    def getRowsCount(self):
+        return self.__cursor.rowcount
+
+    
     def reset(self):
         """It resets the table and queryResult to empty strings.
 
         :return: The object itself.
         """
         self.table = ''
-        self.queryResult = ''
+        self._query = ''
+
         return self
 
+    
     def setTable(self, name: str):
         """It sets the table name for the query
-        
+
         :param name: The name of the table you want to query
         :type name: str
         :return: The object itself.
@@ -46,33 +115,97 @@ class DatabaseQueryBuilder():
         self.table = name
         return self
 
+    
+    def createTable(self,table: str | None = None, *, columns: list = [], override: bool = False):
+        """
+        It creates a table in the database with the columns specified in the parameters
+        
+        :param table: str | None = None, *, columns: list = [], override: bool = False
+        :type table: str | None
+        :param columns: list = []
+        :type columns: list
+        :param override: bool = False, defaults to False
+        :type override: bool (optional)
+        :return: The return value is the instance of the class.
+        """
+        try: 
+            if not columns:
+                print('Not found columns in parameters')
+
+            if not table:
+                if not self.table:
+                    print('No table created')
+                    return
+                
+                table = self.table
+
+            columns.insert(0,'(')
+            columns.insert(len(columns),')')
+            format = ''
+            
+            for index, col in enumerate(columns):
+                if not index == len(columns) - 2:
+                    if col == '(':
+                        format += col
+                    elif col == ')':
+                        format += col
+                    else:
+                        format += f'{col}, '
+                else:
+                    format += f'{col}'
+
+            if override:
+                self.__cursor.execute(f'DROP TABLE IF EXISTS {table};')
+                self._query = f'CREATE TABLE {table} {format};'
+            else:
+                self._query = f'CREATE TABLE IF NOT EXISTS {table} {format}'
+            self.__cursor.execute(self._query)
+
+            return self
+        except Exception as e:
+            print(e)
+
+    
     def query(self):
         """It returns the query result of the table that was passed in
         :return: The queryResult attribute of the class.
         """
-        self.queryResult = f'select * from {self.table}'
+        self._query = f'select * from {self.table}'
         return self
 
-    def select(self, fields: list = []):
-        """It takes a list of fields and builds a query string
 
+    def select(self, table: str | None = None, *, fields: list = []):
+        """
+        It takes a table name and a list of fields and returns a query string
+        
+        :param table: The table name
+        :type table: str
         :param fields: list = []
         :type fields: list
-        :return: The object itself.
+        :return: The select method is returning the object itself.
         """
-        if fields:
-            self.queryResult = 'select '
-            for index, field in enumerate(fields):
-                if not index == len(fields) - 1:
-                    self.queryResult += '{}, '.format(field)
-                else:
-                    self.queryResult += '{} '.format(field)
+        if not table:
+            if not self.table:
+                print('No table created')
+                return
+            
+            table = self.table
 
-            self.queryResult += 'from '
-        else:
-            self.queryResult = 'select * from'
+
+        if not fields:
+            self._query = f'select * from {table}'
+            return self
+        
+        self._query = 'select '
+        for index, field in enumerate(fields):
+            if not index == len(fields) - 1:
+                self._query += f'{field}, '
+            else:
+                self._query += f'{field} '
+        self._query += f'from {table}'
+
         return self
-
+        
     def from_(self, table: str):
         """It takes a string as an argument and appends it to the queryResult property of the class
 
@@ -80,10 +213,11 @@ class DatabaseQueryBuilder():
         :type table: str
         :return: The object itself.
         """
-        self.queryResult += f'{table}'
+        self._query += f'{table}'
         return self
 
-    def where(self, clausule: str, parameter: str, parameters_dict: dict = {}, operator: str = '='):
+    
+    def where(self, clausule: str, parameter: str, parameters_dict: dict = {},*, operator: str = '='):
         """It takes a clausule, a parameter, a parameters_dict and an operator as arguments and returns the queryResult with the where clausule
 
         Note: In the parameters dictionary it's necessary write the operator in the condition e.g: parameters_dict: {'id =': 1, 'name =': 'John'}
@@ -100,36 +234,37 @@ class DatabaseQueryBuilder():
         """
         try:
             if clausule and parameter:
-                if self.queryResult.find('where') == -1:
+                if self._query.find('where') == -1:
                     if type(parameter) == str:
                         parameter = f'\'{parameter}\''
-                    self.queryResult += f' where {clausule} {operator} {parameter}'
+                    self._query += f' where {clausule} {operator} {parameter}'
                 else:
                     if type(parameter) == str:
                         parameter = f'\'{parameter}\''
-                    self.queryResult += f' and {clausule} {operator} {parameter}'
+                    self._query += f' and {clausule} {operator} {parameter}'
             else:
-                self.queryResult += ' where '
+                self._query += ' where '
                 if (len(parameters_dict) == 1):
                     params = list(parameters_dict.items())
                     condition = params[0][0]
                     value = params[0][1]
                     if type(value) == str:
                         value = f'\'{value}\''
-                    self.queryResult += f' {condition} {value}'
+                    self._query += f' {condition} {value}'
                 else:
                     for index, (condition, value) in enumerate(parameters_dict.items()):
                         if not index == len(parameters_dict) - 1:
                             if type(value) == str:
                                 value = f'\'{value}\''
-                                self.queryResult += f' {condition} {value} and '
+                                self._query += f' {condition} {value} and '
                         else:
                             if type(value) == str:
                                 value = f'\'{value}\''
-                                self.queryResult += f' {condition} {value} '
+                                self._query += f' {condition} {value} '
             return self
         except Exception as e:
             print(e)
+
 
     def results(self, query: str = '') -> list[tuple]:
         """It takes a query as an argument, and if the query is empty, it executes the queryResult
@@ -141,34 +276,51 @@ class DatabaseQueryBuilder():
         """
         try:
             if not query:
-                self.cursor.execute(self.queryResult)
+                self.__cursor.execute(self._query)
             else:
-                self.cursor.execute(query)
-                self.db.commit()
-            return self.cursor.fetchall()
+                self.__cursor.execute(query)
+
+            self.db.commit()
+            return self.__cursor.fetchall()
         except Error as e:
             self.db.rollback()
             print(e)
 
+    
     def toJson(self) -> str:
         """It takes the results of a query and returns a json string
         :return: A list of dictionaries.
         """
         try:
-            query_fields = f'SELECT COLUMN_NAME \'field\' FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = \'{self.db_database}\' AND TABLE_NAME = \'{self.table}\';'
-
-            self.cursor.execute(query_fields)
-            fields: list[tuple] = self.cursor.fetchall()
-            self.db.commit()
-            query = self.results()
-
+            fields: list[tuple] | list = None
             listFields = []
             toJson = []
             dictionary = {}
 
+            if DatabaseDrivers.DRIVER_MYSQL.value == self.__driver:
+            
+                query_fields = f'SELECT COLUMN_NAME \'field\' FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = \'{self.db_database}\' AND TABLE_NAME = \'{self.table}\';'
+
+                self.__cursor.execute(query_fields)
+                fields = self.__cursor.fetchall()
+                self.db.commit()
+                query = self.results()
+            
+            elif DatabaseDrivers.DRIVER_SQLITE.value == self.__driver:
+                query_fields = f'select * from {self.table}'
+
+                self.__cursor.execute(query_fields)
+                fields = list(map(lambda columns: columns[0], self.__cursor.description))
+                self.db.commit()
+                query = self.results()
+
+
             for field in fields:
-                # Get the first position of tuple => 'id','name',
-                newField: str = field[0]
+                if DatabaseDrivers.DRIVER_MYSQL.value == self.__driver:
+                    # Get the first position of tuple => 'id','name',
+                    newField: str = field[0]
+                else:
+                    newField: str = field
                 listFields.append(newField)
 
             for index, qResult in enumerate(query):
@@ -186,7 +338,8 @@ class DatabaseQueryBuilder():
             self.db.rollback()
             print(e)
 
-    def insert(self, *, table: str = '', fields: list = [], values: list = [], object: object = object):
+    
+    def insert(self,table: str | None = None, *, fields: list = [], values: list = [], object: object = object):
         """It takes a table name, a list of fields, a list of values, and an object as parameters,and inserts the values into the table
 
         :param table: The table name
@@ -200,6 +353,13 @@ class DatabaseQueryBuilder():
         :return: The last row id
         """
         try:
+            if not table:
+                if not self.table:
+                    print('No table created')
+                    return
+                
+                table = self.table
+
             if table and fields and values:
                 query = self.__generateInsert(table, fields, values)
             elif fields and values:
@@ -211,16 +371,18 @@ class DatabaseQueryBuilder():
                         values.append(getattr(object, o))
                 query = self.__generateInsert(table, fields, values)
 
-            self.cursor.execute(query)
+            self.__cursor.execute(query)
             self.db.commit()
 
-            return self.cursor.lastrowid
+
+            return self.__cursor.lastrowid
 
         except Exception as e:
             self.db.rollback()
             print(e)
 
-    def insertMany(self, *, table: str = '', fields: list = [], values: list = []):
+    
+    def insertMany(self, table: str | None = None, *, fields: list = [], values: list = []):
         """It takes a table name, a list of fields, and a list of values, and inserts them into the database
 
         :param table: str = ''
@@ -232,20 +394,28 @@ class DatabaseQueryBuilder():
         :return: The last row id
         """
         try:
+            if not table:
+                if not self.table:
+                    print('No table created')
+                    return
+                
+                table = self.table
+
             if table and fields and values:
                 query = self.__generateInsertMany(table, fields, values)
             else:
                 query = self.__generateInsertMany(self.table, fields, values)
-            self.cursor.execute(query)
+            self.__cursor.execute(query)
             self.db.commit()
 
-            return self.cursor.lastrowid
+            return self.__cursor.lastrowid
 
         except Exception as e:
             self.db.rollback()
             print(e)
 
-    def update(self, *, table: str = '', fields: list = [], values: list = [], object: object = object, clausule: str, parameter: str, parameters_dict: dict = {}) -> int:
+    
+    def update(self, table: str | None = None, *, fields: list = [], values: list = [], object: object = object, clausule: str, parameter: str, parameters_dict: dict = {}) -> int:
         """It generates an update query based on the parameters passed to it
 
         :param table: str = ''
@@ -265,6 +435,13 @@ class DatabaseQueryBuilder():
         :return: The number of rows affected by the update.
         """
         try:
+            if not table:
+                if not self.table:
+                    print('No table created')
+                    return
+                
+                table = self.table
+
             if table and fields and values:
                 query = self.__generateUpdate(table, fields, values)
             elif fields and values:
@@ -280,19 +457,20 @@ class DatabaseQueryBuilder():
             self.reset().setTable(table if table else self.table).where(
                 clausule, parameter, parameters_dict)
 
-            query += self.queryResult
+            query += self._query
 
-            self.cursor.execute(query)
+            self.__cursor.execute(query)
             self.db.commit()
 
-            return self.cursor.rowcount
+            return self.__cursor.rowcount
         except Error as e:
             self.db.rollback()
             print(e)
 
-    def delete(self, table: str = '', *, clausule: str = '', parameter: str = ''):
+    
+    def delete(self, table: str | None = None, *, clausule: str = '', parameter: str = ''):
         """It deletes a row from a table
-        
+
         :param table: The table you want to delete from
         :type table: str
         :param clausule: The condition for the deletion
@@ -303,16 +481,16 @@ class DatabaseQueryBuilder():
         """
         try:
             if table:
-                self.queryResult = f'delete from {table}'
+                self._query = f'delete from {table}'
             else:
-                self.queryResult = f'delete from {self.table}'
+                self._query = f'delete from {self.table}'
 
             self.where(clausule, parameter, {})
 
-            self.cursor.execute(self.queryResult)
+            self.__cursor.execute(self._query)
             self.db.commit()
 
-            return self.cursor.rowcount
+            return self.__cursor.rowcount
         except Error as e:
             self.db.rollback()
             print(e)
