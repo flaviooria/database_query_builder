@@ -1,6 +1,6 @@
-======================
+==============
 Database Query Builder
-======================
+==============
 
 .. currentmodule:: db_querybuilder.databasequerybuilder
 
